@@ -4,28 +4,31 @@ import Image from 'next/image';
 import { useState, useCallback, useEffect } from 'react';
 
 interface ImageCarouselProps {
-  images?: string[];
+  images: {
+    src: string;
+    caption: string;
+  }[];
+  imageWidth: number;
+  imageHeight: number;
 }
 
 // Configuration parameters
 const SENSITIVITY = 200;
 const SPREAD = 120;
-const MAX_OFFSET = 2;
 const MIN_SCALE = 0.5;
 const MAX_SCALE = 1;
 const SCALE_SPREAD = 0.5;
 
-export default function ImageCarousel({ images }: ImageCarouselProps) {
-  // Use provided images or default placeholders
-  const defaultImages = Array.from({ length: 7 }, () => `/placeholder.png`);
-  const imageList = images || defaultImages;
-  
+const ARROW_SIZE = 20;
+
+export default function ImageCarousel({ images, imageWidth, imageHeight }: ImageCarouselProps) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
   const [startX, setStartX] = useState(0);
   const [currentX, setCurrentX] = useState(0);
 
-  const totalImages = imageList.length;
+  const totalImages = images.length;
+  const maxOffset = Math.max(Math.floor(totalImages / 2) - 2);
 
   // Calculate the position and scale for each image based on distance from center
   const getImageStyle = (index: number) => {
@@ -40,7 +43,7 @@ export default function ImageCarousel({ images }: ImageCarouselProps) {
     const scale = gaussian(adjustedOffset, MIN_SCALE, MAX_SCALE, SCALE_SPREAD);
     const x = adjustedOffset * SPREAD;
     const zIndex = Math.max(0, 100 - Math.floor(absOffset * 10));
-    const opacity = Math.max(0, 1 - (absOffset - 1) / MAX_OFFSET)
+    const opacity = Math.max(0, 1 - (absOffset - 1) / maxOffset)
     
     return {
       transform: `translate3d(${x}px, 0, 0) scale(${scale})`,
@@ -98,83 +101,94 @@ export default function ImageCarousel({ images }: ImageCarouselProps) {
   }, [isDragging, handleMove, handleEnd]);
 
   return (
-    <div className="relative w-full h-96 overflow-hidden bg-linear-to-br from-gray-100 to-gray-200 rounded-lg select-none">
-      {/* Navigation Arrows */}
-      <button
-        onClick={() => offsetImage(-1)}
-        className="absolute left-4 top-1/2 -translate-y-1/2 z-50 w-12 h-12 bg-white/80 hover:bg-white rounded-full shadow-lg flex items-center justify-center transition-all duration-200 hover:scale-110"
-        aria-label="Previous image"
-        disabled={isDragging}
-      >
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-          <path d="M15 18l-6-6 6-6" />
-        </svg>
-      </button>
-      
-      <button
-        onClick={() => offsetImage(1)}
-        className="absolute right-4 top-1/2 -translate-y-1/2 z-50 w-12 h-12 bg-white/80 hover:bg-white rounded-full shadow-lg flex items-center justify-center transition-all duration-200 hover:scale-110"
-        aria-label="Next image"
-        disabled={isDragging}
-      >
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-          <path d="M9 18l6-6-6-6" />
-        </svg>
-      </button>
-
-      {/* Carousel Container */}
+    <div className='flex flex-col w-full gap-4 items-center'>
       <div
-        className="relative w-full h-full flex items-center justify-center cursor-grab"
-        style={{ 
-          perspective: '1000px',
-          cursor: isDragging ? 'grabbing' : 'grab'
-        }}
-        onMouseDown={(e) => handleStart(e.clientX)}
-        onMouseMove={(e) => handleMove(e.clientX)}
-        onMouseUp={handleEnd}
-        onTouchStart={(e) => handleStart(e.touches[0].clientX)}
-        onTouchMove={(e) => handleMove(e.touches[0].clientX)}
-        onTouchEnd={handleEnd}
+        className="relative w-full overflow-hidden rounded-lg select-none"
+        style={{ height: imageHeight }}
       >
-        {imageList.map((src, index) => {
-          const style = getImageStyle(index);
-          return (
-            <div
-              key={index}
-              className={`absolute ease-out cursor-pointer ${isDragging ? 'transition-none' : 'transition-all duration-500'}`}
-              style={{
-                ...style,
-                transformStyle: 'preserve-3d',
-              }}
-              onClick={(e) => {
-                e.preventDefault();
-                if (index !== currentIndex && !isDragging) {
-                  setCurrentIndex(index);
-                }
-              }}
-            >
-              <Image
-                src={src}
-                width={200}
-                height={200}
-                alt={`Carousel image ${index + 1}`}
-                className="rounded-lg shadow-lg hover:shadow-xl transition-shadow duration-300 pointer-events-none"
+        {/* Carousel Container */}
+        <div
+          className="relative w-full h-full flex items-center justify-center cursor-grab"
+          style={{ 
+            perspective: '1000px',
+            cursor: isDragging ? 'grabbing' : 'grab'
+          }}
+          onMouseDown={(e) => handleStart(e.clientX)}
+          onMouseMove={(e) => handleMove(e.clientX)}
+          onMouseUp={handleEnd}
+          onTouchStart={(e) => handleStart(e.touches[0].clientX)}
+          onTouchMove={(e) => handleMove(e.touches[0].clientX)}
+          onTouchEnd={handleEnd}
+        >
+          {images.map((image, index) => {
+            const style = getImageStyle(index);
+            return (
+              <div
+                key={index}
+                className={`absolute ease-out cursor-pointer ${isDragging ? 'transition-none' : 'transition-all duration-500'}`}
                 style={{
-                  width: '200px',
-                  height: '200px',
-                  objectFit: 'cover',
+                  ...style,
+                  transformStyle: 'preserve-3d',
                 }}
-                draggable={false}
-              />
-            </div>
-          );
-        })}
+                onClick={(e) => {
+                  e.preventDefault();
+                  if (index !== currentIndex && !isDragging) {
+                    setCurrentIndex(index);
+                  }
+                }}
+              >
+                <Image
+                  src={image.src}
+                  width={imageWidth}
+                  height={imageHeight}
+                  alt={`Carousel image ${index + 1}`}
+                  className="rounded-lg shadow-lg hover:shadow-xl transition-shadow duration-300 pointer-events-none"
+                  style={{
+                    width: `${imageWidth}px`,
+                    height: `${imageHeight}px`,
+                    objectFit: 'cover',
+                  }}
+                  draggable={false}
+                />
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Navigation Arrows */}
+        <div
+          className='absolute left-1/2 top-1/2 -translate-y-1/2 -translate-x-1/2 overflow-visible pointer-events-none'
+          style={{
+            width: imageWidth,
+            height: imageHeight
+          }}
+        >
+          <button
+            onClick={() => offsetImage(-1)}
+            className={`${isDragging ? 'opacity-50 pointer-events-none' : 'opacity-100 pointer-events-auto'} absolute top-1/2 -translate-x-1/2 -translate-y-1/2 z-50 w-12 h-12 bg-white rounded-full shadow-lg flex items-center justify-center transition-all duration-200 hover:scale-110`}
+            aria-label="Previous image"
+            disabled={isDragging}
+          >
+            <svg width={ARROW_SIZE} height={ARROW_SIZE} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M15 18l-6-6 6-6" />
+            </svg>
+          </button>
+          
+          <button
+            onClick={() => offsetImage(1)}
+            className={`${isDragging ? 'opacity-50 pointer-events-none' : 'opacity-100 pointer-events-auto'} absolute right-0 top-1/2 translate-x-1/2 -translate-y-1/2 z-50 w-12 h-12 bg-white rounded-full shadow-lg flex items-center justify-center transition-all duration-200 hover:scale-110`}
+            aria-label="Next image"
+            disabled={isDragging}
+          >
+            <svg width={ARROW_SIZE} height={ARROW_SIZE} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M9 18l6-6-6-6" />
+            </svg>
+          </button>
+        </div>
       </div>
-      
-      {/* Image Counter */}
-      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-black/50 text-white px-3 py-1 rounded-full text-sm pointer-events-none">
-        {currentIndex + 1} / {totalImages}
-      </div>
+      <p className={`${isDragging ? 'opacity-0' : 'opacity-100'} transition-all`}>
+        {images[currentIndex].caption}
+      </p>
     </div>
   );
 }
